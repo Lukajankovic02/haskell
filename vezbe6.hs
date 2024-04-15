@@ -166,7 +166,7 @@ instance Functor (Either' a) where
 
 -}
 
-{-  Domaci (BODUJE SE!!! BONUS POENI!!!)
+{-  Domaci
 
     - Napisati program koji enkriptuje i dekriptuje bilo koji tekstualni fajl upotrebom Vigenere cypher-a
         - cmd line parametri: operacija, sifra (kljuc) i putanja do fajla
