@@ -25,7 +25,7 @@ import Text.Parsec
 import System.Environment
 import System.IO
 
-data Record = Record (String, String) deriving (Show)
+newtype Record = Record (String, String) deriving (Show)
 
 fonS :: Parsec String Int Record
 fonS = do ime <- many1 letter
@@ -40,9 +40,9 @@ separatorS :: Parsec String Int ()
 separatorS = spaces >> char ',' >> spaces
 
 imenikS :: Parsec String Int (Int, [Record])
-imenikS = do res <- (many $ do zapis <- fonS
-                               eof <|> separatorS
-                               return zapis)
+imenikS = do res <- many $ do zapis <- fonS
+                              eof <|> separatorS
+                              return zapis
              cnt <- getState
              return (cnt, res)
 
@@ -65,7 +65,7 @@ data Attribute = Attribute AttrName AttrValue NumTabs  -- deriving (Show)
 
 data Channel = Channel [Tag] NumTabs -- deriving (Show)
 
-data Tag = Element TagName [Attribute] [Tag] NumTabs 
+data Tag = Element TagName [Attribute] [Tag] NumTabs
            | SCTag TagName [Attribute] NumTabs
            | Body String NumTabs  -- deriving (Show)
 
@@ -96,7 +96,7 @@ instance Show Channel where
 
 instance Show Attribute where
     show (Attribute name value tabs) = insertTabs tabs ++ "\"" ++ name ++ "\": \"" ++ value ++ "\""
-    
+
 instance Show Tag where
     show (Body str tabs) = insertTabs tabs ++ "\"body\": \"" ++ str ++ "\""
     show (SCTag name attrs tabs) = insertTabs tabs ++ "\"" ++ name ++ "\": {\n" ++ showAttr attrs ++ insertTabs tabs ++ "}"
@@ -152,8 +152,7 @@ attribute = do name <- many (noneOf "/= >")
                try (char '=')
                value <- between (char '"') (char '"') (many (noneOf ['"']))
                spaces
-               tabs <- getState
-               return (Attribute name value tabs)
+               Attribute name value <$> getState
 
 channel :: Parsec String Int Channel  -- ()
 channel = do char '<'
@@ -171,8 +170,7 @@ channel = do char '<'
              string "channel"
              spaces
              char '>'
-             tabs <- getState
-             return (Channel tags tabs)
+             Channel tags <$> getState
 
 tag :: Parsec String Int Tag  -- ()
 tag = do try (do char '<'
@@ -186,8 +184,8 @@ tag = do try (do char '<'
          spaces
          close <- try (string "/>") <|> string ">"
          tabs <- getState
-		 spaces
-         if (length close) == 2
+         spaces
+         if length close == 2
             then return (SCTag name attrs tabs)
             else do modifyState (+1)
                     elemBody <- many elementBody
@@ -206,20 +204,18 @@ elementBody = do spaces
 
 text :: Parsec String Int Tag  -- ()
 text = do txt <- many1 (noneOf "<>")
-          tabs <- getState
-          return (Body txt tabs)
+          Body txt <$> getState
 
 cData :: Parsec String Int Tag  -- ()
 cData = do string "<!"
            txt <- manyTill anyChar (string "]]>")
-           tabs <- getState
-           return (Body ("<!" ++ txt ++ "]]>") tabs)
+           Body ("<!" ++ txt ++ "]]>") <$> getState
 
 main :: IO ()
-main = do (input:output:[]) <- getArgs
+main = do [input, output] <- getArgs
           h <- openFile input ReadMode
           hSetEncoding h latin1
           cnts <- hGetContents h
-          case (runParser document 1 input cnts) of  -- parse
-            Left err -> putStrLn . show $ err
+          case runParser document 1 input cnts of  -- parse
+            Left err -> print err
             Right rss -> writeFile output . show $ rss  -- putStrLn . show $ rss
